@@ -5,6 +5,12 @@ if [ ${Anaconda_path} = "XXX" ]; then
     exit
 fi
 
+echo "Anaconda_path: $Anaconda_path"
+if ! [ -f ${Anaconda_path}/bin/pip ]; then
+    echo "The Anaconda_path does not exist!"
+    exit
+fi
+
 echo "**********************************************"
 echo "**********************************************"
 echo "Install Python package mrcfile"
