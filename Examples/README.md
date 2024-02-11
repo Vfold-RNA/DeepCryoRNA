@@ -1,4 +1,4 @@
-We provide two examples for RNA 6UES.
+We provide an example for the RNA 6UES.
 
 The folder *example_6UES/* is prepared for the user to test using a GPU and 10 CPUs.
 
