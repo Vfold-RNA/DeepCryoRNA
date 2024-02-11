@@ -18,7 +18,7 @@ ${Anaconda_path}/bin/pip install mrcfile
 echo ""
 
 echo "Install Python package scikit-image"
-${Anaconda_path}/bin/pip install scikit-image
+${Anaconda_path}/bin/pip install scikit-image==0.20.0
 echo ""
 
 echo "**********************************************"
