@@ -2,8 +2,6 @@
 
 
 ## Platform Requirements (Tested)
-The following are tested system settings:
-
 * GNU/Linux x86_64 (Ubuntu 16)
 * gcc/g++ supporting C++11 (>= version 4.7)
 
