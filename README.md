@@ -67,7 +67,7 @@ Path_To_Anaconda/bin/python ${DEEPCRYORNA_HOME}/main.py -i ./input_6UES.txt > De
 ```
 The input file "input_6UES.txt" includes the information for the RNA name, the cryo-EM map, RNA sequence, contour level, gpu and cpu. Please see the README.md in the *Examples/* folder for further information.
 
-The outfile file *DeepCryoRNA_6UES.log* stores the process information.
+The log file *DeepCryoRNA_6UES.log* stores the progress information.
 
 Please see the README.md in the *Examples/* folder for the information regarding the output files and folders.
 
