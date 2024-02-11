@@ -1,0 +1,9 @@
+WRITEFREQ  500    # Frequency of writing outputpdb (each xxx steps); by default 100
+VERBOSE    1      # {0,1,2,3} - verbosity; by default 1
+
+NSTEPS     1000  # Maximal number of steps; by default 100000
+CUTOFF     4.0    # Cutoff for van der Waals [Ang]; by default 12
+ELECTR     0      # {0,1} Electrostatics (off/on); by default ON
+#VDW       0      # {0,1} Van der Waals interactions (off/on); by default ON
+#HBONDS    0      # {0,1} Hydrogen bonds (off/on); by default ON
+                  # They are necessary to autodetect secondary structure.
