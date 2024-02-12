@@ -19,7 +19,7 @@ chimerax --version
 Please download and install Anaconda from https://www.anaconda.com/download#downloads.
 
 #### 3. Install TensorFlow 2
-Please download and install Tensorflow from https://www.tensorflow.org/install/pip.
+Please download and install Tensorflow following the website https://www.tensorflow.org/install/pip.
 
 Please install TensorFlow with the *pip* package manager in Python from the newly installed Anaconda software.
 
