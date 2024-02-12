@@ -1,5 +1,4 @@
-Mon Oct 16 02:06:36 CDT 2023
-Namespace(rna='test', map=None, contour=None, seq=None, gpu='0', ncpu=10, input='./input_6UES.txt')
+Namespace(rna='test', map=None, contour=None, seq=None, gpu=None, ncpu=10, input='./input_6UES.txt')
 
 ****** Input Info ******
 RNA name: 6UES
@@ -8,7 +7,7 @@ Contour value: 9.0
 RNA sequence: GGUCAUGAGUGCCAGCGUCAAGCCCCGGCUUGCUGGCCGGCAACCCUCCAACCGCGGUGGGGUGCCCCGGGUGAUGACCAGGUUGAGUAGCCGUGACGGCUACGCGGCAAGCGCGGGUC
 GPU: 0
 nCPU: 10
-DEEPCRYORNA_HOME: /home/junli/new-cryoem-project/ntseg-atomseg-multiresunet3D-experimental-maps-without-proteins/post-process2/DeepCryoRNA/src
+DEEPCRYORNA_HOME: /home/junli/DeepCryoRNA/src
 
 ------------------------------------------------------------------------------------------------------------------------
 Start to reconstruct the 3D structure of RNA '6UES' based on the cryo-EM map 'emd_20755.map'.
@@ -19,7 +18,7 @@ Start to reconstruct the 3D structure of RNA '6UES' based on the cryo-EM map 'em
 
       The preprocessing log info by ChimeraX will be stored in the file 'chimerax.log'.
       Chimerax is currently running the following command:
-        chimerax --nogui /home/junli/new-cryoem-project/ntseg-atomseg-multiresunet3D-experimental-maps-without-proteins/post-process2/DeepCryoRNA/src/preprocess_cryoEM_map.py emd_20755.map 9.0 > chimerax.log 2>&1
+        chimerax --nogui /home/junli/DeepCryoRNA/src/preprocess_cryoEM_map.py emd_20755.map 9.0 > chimerax.log 2>&1
       The masked and scaled cryo-EM map 'tmp/emd_20755_masked_apix0.5.mrc' has been generated.
 
 (2) Converting the processed cryo-EM map into atoms based on the Unet model ...
@@ -65,20 +64,20 @@ Start to reconstruct the 3D structure of RNA '6UES' based on the cryo-EM map 'em
           ps64/pred_6UES_ps64-9.pdb
           ps64/pred_6UES_ps64-10.pdb
 
-      For patch size 128 and 64:
+      For patch size Both (64 and 128):
         Got 10 best alignments.
-        The best alignment results are stored in 'ps_all/best_alignment_results_ps_all.txt'.
+        The best alignment results are stored in 'psBoth/best_alignment_results_psBoth.txt'.
         10 structures have been generated in the following files:
-          ps_all/pred_6UES-1.pdb
-          ps_all/pred_6UES-2.pdb
-          ps_all/pred_6UES-3.pdb
-          ps_all/pred_6UES-4.pdb
-          ps_all/pred_6UES-5.pdb
-          ps_all/pred_6UES-6.pdb
-          ps_all/pred_6UES-7.pdb
-          ps_all/pred_6UES-8.pdb
-          ps_all/pred_6UES-9.pdb
-          ps_all/pred_6UES-10.pdb
+          psBoth/pred_6UES-1.pdb
+          psBoth/pred_6UES-2.pdb
+          psBoth/pred_6UES-3.pdb
+          psBoth/pred_6UES-4.pdb
+          psBoth/pred_6UES-5.pdb
+          psBoth/pred_6UES-6.pdb
+          psBoth/pred_6UES-7.pdb
+          psBoth/pred_6UES-8.pdb
+          psBoth/pred_6UES-9.pdb
+          psBoth/pred_6UES-10.pdb
 
 (5) Performing energy minimization by QRNAS ...
 
@@ -106,17 +105,16 @@ Start to reconstruct the 3D structure of RNA '6UES' based on the cryo-EM map 'em
         ps64/em-pred_6UES_ps64-9.pdb
         ps64/em-pred_6UES_ps64-10.pdb
 
-      10 energy-minimized structures for patch size 128 and 64 have been generated in the following files:
-        ps_all/em-pred_6UES-1.pdb
-        ps_all/em-pred_6UES-2.pdb
-        ps_all/em-pred_6UES-3.pdb
-        ps_all/em-pred_6UES-4.pdb
-        ps_all/em-pred_6UES-5.pdb
-        ps_all/em-pred_6UES-6.pdb
-        ps_all/em-pred_6UES-7.pdb
-        ps_all/em-pred_6UES-8.pdb
-        ps_all/em-pred_6UES-9.pdb
-        ps_all/em-pred_6UES-10.pdb
+      10 energy-minimized structures for patch size Both (64 and 128) have been generated in the following files:
+        psBoth/em-pred_6UES-1.pdb
+        psBoth/em-pred_6UES-2.pdb
+        psBoth/em-pred_6UES-3.pdb
+        psBoth/em-pred_6UES-4.pdb
+        psBoth/em-pred_6UES-5.pdb
+        psBoth/em-pred_6UES-6.pdb
+        psBoth/em-pred_6UES-7.pdb
+        psBoth/em-pred_6UES-8.pdb
+        psBoth/em-pred_6UES-9.pdb
+        psBoth/em-pred_6UES-10.pdb
 
-The job is finished in 10 min 4 s.
-Mon Oct 16 02:16:43 CDT 2023
+The job is finished in 8 min 17 s.

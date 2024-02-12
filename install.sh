@@ -1,9 +1,4 @@
-Anaconda_path="XXX" # please replace XXX with the real path to the newly installed Anaconda
-
-if [ ${Anaconda_path} = "XXX" ]; then
-    echo "Please replace XXX with the real path to the newly installed Anaconda."
-    exit
-fi
+Anaconda_path=$1
 
 echo "Anaconda_path: $Anaconda_path"
 if ! [ -f ${Anaconda_path}/bin/pip ]; then

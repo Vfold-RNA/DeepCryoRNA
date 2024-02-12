@@ -1,15 +1,14 @@
 # DeepCryoRNA - deep learning-based RNA structure reconstruction from cryo-EM maps
 
 
-## Platform Requirements (Tested)
-* GNU/Linux x86_64 (Ubuntu 16)
-* gcc/g++ supporting C++11 (>= version 4.7)
+## Platform Requirements
+* GNU/Linux x86_64 (tested on Ubuntu 16.04.7 LTS, Ubuntu 18.04.4 LTS, Ubuntu 20.04.6 LTS, Ubuntu 22.04.3 LTS) 
 
 
 ## Installation
 
-#### 1. Install Chimerax Release 1.3
-Please download and install Chimerax Release 1.3 from https://www.rbvi.ucsf.edu/chimerax/older_releases.html.
+#### 1. Install Chimerax
+Please download and install Chimerax Release 1.3 for Ubuntu 16, 18, 20 and Release 1.6 for Ubuntu 22 from https://www.rbvi.ucsf.edu/chimerax/older_releases.html.
 
 Please check if Chimerax is installed:
 ```
@@ -30,20 +29,23 @@ Please follow the installation instructions for TensorFlow to install the NVIDIA
 ```
 git clone https://github.com/Vfold-RNA/DeepCryoRNA.git ${HOME}/DeepCryoRNA
 ```
+
+#### 5. Download the trained Unet model and put it in *${HOME}/DeepCryoRNA/src/*
 ```
 wget https://github.com/Vfold-RNA/DeepCryoRNA/releases/download/v1.0/DeepCryoRNA_Unet.hdf5 -P ${HOME}/DeepCryoRNA/src
 ```
 
-#### 5. Install the required Python packages, compile QRNAS <sup>[1]</sup> for energy minimization, and generate shared C++ library for efficient calculation of global sequence alignment scores
+#### 6. Install the required Python packages, compile QRNAS <sup>[1]</sup> for energy minimization, and generate shared C++ library for efficient calculation of global sequence alignment scores
 ```
 cd ${HOME}/DeepCryoRNA
 ```
+Please change "Path_To_Anaconda" in the following command to the real path to the newly installed Anaconda:
 ```
-bash ./install.sh
+bash ./install.sh Path_To_Anaconda
 ```
 
-#### 6. Set the environment variable *DEEPCRYORNA_HOME*
-Add the following line to ${HOME}/.bashrc:
+#### 7. Set the environment variable *DEEPCRYORNA_HOME*
+Add the following line to *${HOME}/.bashrc*
 ```
 export DEEPCRYORNA_HOME="${HOME}/DeepCryoRNA/src"
 ```
@@ -59,7 +61,7 @@ echo $DEEPCRYORNA_HOME
 ```
 cd ${HOME}/DeepCryoRNA/Examples/example_6UES
 ```
-Please change "Path_To_Anaconda" to the real path to the newly installed Anaconda in the following command:
+Please change "Path_To_Anaconda" in the following command to the real path to the newly installed Anaconda:
 ```
 Path_To_Anaconda/bin/python ${DEEPCRYORNA_HOME}/main.py -i ./input_6UES.txt > DeepCryoRNA_6UES.log
 ```
@@ -68,6 +70,10 @@ The input file "input_6UES.txt" includes the information for the RNA name, the c
 The log file *DeepCryoRNA_6UES.log* stores the progress information.
 
 Please see the README.md in the *Examples/* folder for the information regarding the output files and folders.
+
+For this example, it took about 8 minutes using a GPU and 10 CPUs.
+
+It took about 10 to 15 minutes using only 10 CPUs.
 
 
 ## Software References
