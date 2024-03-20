@@ -7,6 +7,8 @@
 
 ## Installation
 
+It usually takes several minutes for the each installation step below.
+
 #### 1. Install Chimerax
 Please download and install Chimerax Release 1.3 for Ubuntu 16, 18, 20 and Release 1.6 for Ubuntu 22 from https://www.rbvi.ucsf.edu/chimerax/older_releases.html.
 
