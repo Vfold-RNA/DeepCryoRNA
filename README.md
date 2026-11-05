@@ -81,4 +81,3 @@ It took about 10 to 15 minutes using only 10 CPUs.
 ## Software References
 
 [1] https://genesilico.pl/software/stand-alone/qrnas
-test
