@@ -513,6 +513,10 @@ def assign_atom_to_nt(DEEPCRYORNA_HOME,atomseg,apix=0.5):
     return list_nts
 
 def determine_if_two_nts_are_neighbors(nt1,nt2):
+    dis_C4s_C4s = np.linalg.norm(nt1[2]["C4'"] - nt2[2]["C4'"])
+    if dis_C4s_C4s > 15.0:
+        return False, None
+
     if "O3'" not in nt1[2].keys():
         return False, None
     else:
@@ -644,6 +648,72 @@ def filter_all_multiple_neighbors(list_nt,list_all_multiple_neighbors,multiple_t
         list_all_multiple_neighbors[i], list_bad_neighbors_to_remove_tmp = filter_multiple_neighbors(list_nt,list_all_multiple_neighbors[i],multiple_type)
         list_bad_neighbors_to_remove.extend(list_bad_neighbors_to_remove_tmp)
     list_all_multiple_neighbors = list(filter(None,list_all_multiple_neighbors))
+    return list_all_multiple_neighbors, list_bad_neighbors_to_remove
+
+def further_filter_multiple_neighbors(list_neighbors,list_nt,list_multiple_neighbors):
+    if len(list_multiple_neighbors) > 2:
+        return [], copy.deepcopy(list_multiple_neighbors)
+
+    list_has_neighbor = [False] * len(list_multiple_neighbors)
+    if list_multiple_neighbors[0][0] == list_multiple_neighbors[1][0]:
+        multiple_type = "branch"
+    else:
+        multiple_type = "join"
+    for i, neighbor in enumerate(list_multiple_neighbors):
+        nt1_idx, nt2_idx = neighbor
+        if multiple_type == "branch":
+            assert nt1_idx == list_multiple_neighbors[0][0]
+            for neighbor in list_neighbors:
+                if nt2_idx == neighbor[0]:
+                    list_has_neighbor[i] = True
+                    break
+        elif multiple_type == "join":
+            assert nt2_idx == list_multiple_neighbors[0][1]
+            for neighbor in list_neighbors:
+                if nt1_idx == neighbor[1]:
+                    list_has_neighbor[i] = True
+                    break
+
+    if True in list_has_neighbor:
+        return list_multiple_neighbors, []
+    else:
+        return [], copy.deepcopy(list_multiple_neighbors)
+
+def further_filter_all_multiple_neighbors(list_neighbors,list_nt,list_all_multiple_neighbors):
+    max_n = 6 # 2^6 = 64 candidates
+
+    to_remove_idx = []
+    for i in range(len(list_all_multiple_neighbors)):
+        n1 = list_all_multiple_neighbors[i]
+        for j in range(i+1, len(list_all_multiple_neighbors)):
+            n2 = list_all_multiple_neighbors[j]
+            common = set(map(tuple, n1)) & set(map(tuple, n2))
+            if common:
+                to_remove_idx.append(i)
+                to_remove_idx.append(j)
+    
+    list_bad_neighbors_to_remove = []
+
+    for i in set(to_remove_idx):
+        for n in list_all_multiple_neighbors[i]:
+            list_bad_neighbors_to_remove.append([n[0],n[1]])
+        list_all_multiple_neighbors[i] = []
+    list_all_multiple_neighbors = list(filter(None,list_all_multiple_neighbors))
+
+    if len(list_all_multiple_neighbors) <= max_n:
+        return list_all_multiple_neighbors, list_bad_neighbors_to_remove
+
+    for i in range(len(list_all_multiple_neighbors)):
+        list_all_multiple_neighbors[i], list_bad_neighbors_to_remove_tmp = further_filter_multiple_neighbors(list_neighbors,list_nt,list_all_multiple_neighbors[i])
+        list_bad_neighbors_to_remove.extend(list_bad_neighbors_to_remove_tmp)
+    list_all_multiple_neighbors = list(filter(None,list_all_multiple_neighbors))
+
+    if len(list_all_multiple_neighbors) > max_n:
+        for i, multi_neighbors in enumerate(list_all_multiple_neighbors[max_n:]):
+            for neighbor in multi_neighbors:
+                list_bad_neighbors_to_remove.append([neighbor[0], neighbor[1]])
+        list_all_multiple_neighbors = list_all_multiple_neighbors[0:max_n]
+
     return list_all_multiple_neighbors, list_bad_neighbors_to_remove
 
 def get_chain(list_neighbors,seed):
@@ -1623,7 +1693,7 @@ def sort_list_nt(list_native_seq, list_nt):
     for i in range(len(list_nt)):
         if i not in list_found_neighbors:
             list_not_found_neighbors.append(i)
-   
+  
     list_multiple_neighbors_branch = []
     for i in range(len(list_neighbors)):
         skip = False
@@ -1689,6 +1759,12 @@ def sort_list_nt(list_native_seq, list_nt):
 
     list_multiple_neighbors = list_multiple_neighbors_branch + list_multiple_neighbors_join
 
+    if len(list_multiple_neighbors) > 6 and len(list_nt) > 600:
+        list_multiple_neighbors, list_bad_neighbors_to_remove = further_filter_all_multiple_neighbors(list_neighbors,list_nt,list_multiple_neighbors)
+        for bad_neighbor in list_bad_neighbors_to_remove:
+            if bad_neighbor in list_neighbors:
+                list_neighbors.remove(bad_neighbor)
+
     list_neighbors_excluding_multiple_neighbors = []
     list_multiple_neighbors_flatten = [neighbor for multiple_neighbors in list_multiple_neighbors for neighbor in multiple_neighbors]
     for neighbor in list_neighbors:
@@ -1714,20 +1790,34 @@ def sort_list_nt(list_native_seq, list_nt):
             list_ie.append(v[1])
         if len(list_ib) != len(set(list_ib)):
             to_remove_idx.append(i)
+            duplicates = set([x for x in list_ib if list_ib.count(x) > 1])
             continue
         if len(list_ie) != len(set(list_ie)):
             to_remove_idx.append(i)
+            duplicates = set([x for x in list_ie if list_ie.count(x) > 1])
             continue
-    for i in reversed(to_remove_idx):
-        list_multiple_neighbors_combination.pop(i)
-    
+
+    to_remove_idx = set(to_remove_idx)
+    list_multiple_neighbors_combination = [elem for idx, elem in enumerate(list_multiple_neighbors_combination) if idx not in to_remove_idx]
+
     list_neighbors_candidates = []
-    for multiple_neighbors_combination in list_multiple_neighbors_combination:
+    for i, multiple_neighbors_combination in enumerate(list_multiple_neighbors_combination):
         if multiple_neighbors_combination:
             candidate = list_neighbors_excluding_multiple_neighbors + multiple_neighbors_combination
         else:
             candidate = list_neighbors_excluding_multiple_neighbors            
         list_neighbors_candidates.append(candidate)
+
+    for i, combination in enumerate(list_neighbors_candidates):
+        list_ib = []
+        list_ie = []
+        for v in combination:
+            list_ib.append(v[0])
+            list_ie.append(v[1])
+        if len(list_ib) != len(set(list_ib)):
+            duplicates = set([x for x in list_ib if list_ib.count(x) > 1])
+        if len(list_ie) != len(set(list_ie)):
+            duplicates = set([x for x in list_ie if list_ie.count(x) > 1])
 
     return list_neighbors_candidates
 
@@ -1768,11 +1858,29 @@ def check_short_chains_similarity(list_all_short_chains, short_chains):
 
     return list_all_short_chains
 
-def get_all_short_chains(list_native_seq,list_neighbors_candidates):
+def get_all_short_chains(list_native_seq,list_neighbors_candidates,ncpu):
+    ncpu_available = multiprocessing.cpu_count()
+    if ncpu > ncpu_available:
+        ncpu = ncpu_available
+
+    pool = multiprocessing.Pool(processes=ncpu)
+    partial_function = partial(get_short_chains, list_native_seq)
+    list_short_chains = pool.map(partial_function, list_neighbors_candidates)
+    pool.close()
+    pool.join()
+
     list_all_short_chains = []
+    for short_chains in list_short_chains:
+        list_all_short_chains = check_short_chains_similarity(list_all_short_chains, short_chains)
+
+    """
+    list_all_short_chains2 = []
     for neighbors_candidate in list_neighbors_candidates:
         short_chains = get_short_chains(list_native_seq, neighbors_candidate)
-        list_all_short_chains = check_short_chains_similarity(list_all_short_chains, short_chains)
+        list_all_short_chains2 = check_short_chains_similarity(list_all_short_chains2, short_chains)
+
+    assert list_all_short_chains == list_all_short_chains2
+    """
     return list_all_short_chains
 
 def determine_position_between_point_and_triangle(triangle, point):
@@ -2224,28 +2332,40 @@ def calc_2D_score(nt_chains_raw):
                 score += 1
     return score
 
-def write_PDB_short_chains(DEEPCRYORNA_HOME,map_origin,short_chains_raw,outpdbfile,list_nt_raw):
+def write_PDB_short_chains(DEEPCRYORNA_HOME,map_origin,list_nt_raw, short_chains_and_outfile):
     list_backbone_templates, list_sugar_base_AG_templates, list_sugar_base_CU_templates, dict_base_templates = get_template_nucleotide(DEEPCRYORNA_HOME)
+    list_backbone_templates = list_backbone_templates[0:5]  # reduce template number in rebuilding atoms to accelerate write PDB for short chains
+    list_sugar_base_AG_templates = list_sugar_base_AG_templates[0:5]
+    list_sugar_base_CU_templates = list_sugar_base_CU_templates[0:5]
+
     backbone_ref_atom_names = ["P","OP1","OP2","O5'","C5'","C4'","C3'","O3'","C2'","O2'","C1'","O4'"]
     sugar_ref_atom_names = ["C4'","C3'","O3'","C2'","O2'","C1'","O4'"]
+
+    short_chains_raw, outfile = short_chains_and_outfile
 
     short_chains = copy.deepcopy(short_chains_raw)
     list_nt = copy.deepcopy(list_nt_raw)
 
-    f = open(outpdbfile,"w")
+    f = open(outfile,"w")
+    f.write("data_short_chains\n")
+    f.write("loop_\n")
+    f.write("_atom_site.group_PDB\n")
+    f.write("_atom_site.id\n")
+    f.write("_atom_site.type_symbol\n")
+    f.write("_atom_site.label_atom_id\n")
+    f.write("_atom_site.label_comp_id\n")
+    f.write("_atom_site.label_asym_id\n")
+    f.write("_atom_site.label_seq_id\n")
+    f.write("_atom_site.Cartn_x\n")
+    f.write("_atom_site.Cartn_y\n")
+    f.write("_atom_site.Cartn_z\n")
+    f.write("_atom_site.occupancy\n")
+    f.write("_atom_site.B_iso_or_equiv\n")
+
     atom_id = 1
     for num_chain, short_chain in enumerate(short_chains):
         for nt_idx, idx in enumerate(short_chain):
             _, nttype, atoms = list_nt[idx]
-            if num_chain >= 62:
-                num_chain -= 62
-
-            if num_chain <= 25:
-                chain_name = chr(ord("A")+num_chain)
-            elif num_chain <= 51:
-                chain_name = chr(ord("a")+num_chain-26)
-            elif num_chain <= 61:
-                chain_name = chr(ord("0")+num_chain-52)
 
             if nttype == 1:
                 nt_name = "A"
@@ -2318,28 +2438,35 @@ def write_PDB_short_chains(DEEPCRYORNA_HOME,map_origin,short_chains_raw,outpdbfi
                 coord[0] += np.random.uniform(0.01,0.05) * np.random.choice([-1.,1.]) 
                 coord[1] += np.random.uniform(0.01,0.05) * np.random.choice([-1.,1.]) 
                 coord[2] += np.random.uniform(0.01,0.05) * np.random.choice([-1.,1.]) # alter the same atoms by adding a small shift
-                coordx = f"{coord[0]:.3f}"
-                if len(coordx) > 8:
-                    coordx = coordx[:8]
-                coordy = f"{coord[1]:.3f}"
-                if len(coordy) > 8:
-                    coordy = coordy[:8]
-                coordz = f"{coord[2]:.3f}"
-                if len(coordz) > 8:
-                    coordz = coordz[:8]
-                f.write(f"ATOM  {atom_id:>5}  {atom_name:<3} {nt_name:>3} {chain_name}{nt_idx:>4}    {coordx:>8}{coordy:>8}{coordz:>8}\n")
+                f.write(f"ATOM {atom_id:8d} {atom_name[0]:2s} {atom_name:4s} {nt_name:3s} "
+                        f"{str(num_chain):5s} {nt_idx:5d} {coord[0]:8.3f} {coord[1]:8.3f} {coord[2]:8.3f} "
+                        f"{1.0:6.2f} {0.0:6.2f}\n")
                 atom_id += 1
-    f.write("END")
     f.close()
 
-def write_PDB_all_nts(DEEPCRYORNA_HOME,map_origin,nt_chains_raw,outpdbfile):
+def write_PDB_all_nts(DEEPCRYORNA_HOME,map_origin,nt_chains_raw,outfile):
     list_backbone_templates, list_sugar_base_AG_templates, list_sugar_base_CU_templates, dict_base_templates = get_template_nucleotide(DEEPCRYORNA_HOME)
     backbone_ref_atom_names = ["P","OP1","OP2","O5'","C5'","C4'","C3'","O3'","C2'","O2'","C1'","O4'"]
     sugar_ref_atom_names = ["C4'","C3'","O3'","C2'","O2'","C1'","O4'"]
 
     nt_chains = copy.deepcopy(nt_chains_raw)
 
-    f = open(outpdbfile,"w")
+    f = open(outfile,"w")
+    f.write("data_all_nucleotides\n")
+    f.write("loop_\n")
+    f.write("_atom_site.group_PDB\n")
+    f.write("_atom_site.id\n")
+    f.write("_atom_site.type_symbol\n")
+    f.write("_atom_site.label_atom_id\n")
+    f.write("_atom_site.label_comp_id\n")
+    f.write("_atom_site.label_asym_id\n")
+    f.write("_atom_site.label_seq_id\n")
+    f.write("_atom_site.Cartn_x\n")
+    f.write("_atom_site.Cartn_y\n")
+    f.write("_atom_site.Cartn_z\n")
+    f.write("_atom_site.occupancy\n")
+    f.write("_atom_site.B_iso_or_equiv\n")
+
     atom_id = 1
     for nt_num, nt in enumerate(nt_chains): 
         if len(nt) == 3:
@@ -2418,31 +2545,24 @@ def write_PDB_all_nts(DEEPCRYORNA_HOME,map_origin,nt_chains_raw,outpdbfile):
             coord[0] += np.random.uniform(0.01,0.05) * np.random.choice([-1.,1.]) 
             coord[1] += np.random.uniform(0.01,0.05) * np.random.choice([-1.,1.]) 
             coord[2] += np.random.uniform(0.01,0.05) * np.random.choice([-1.,1.]) # alter the same atoms by adding a small shift
-            coordx = f"{coord[0]:.3f}"
-            if len(coordx) > 8:
-                coordx = coordx[:8]
-            coordy = f"{coord[1]:.3f}"
-            if len(coordy) > 8:
-                coordy = coordy[:8]
-            coordz = f"{coord[2]:.3f}"
-            if len(coordz) > 8:
-                coordz = coordz[:8]
-            f.write(f"ATOM  {atom_id:>5}  {atom_name:<3} {nt_name:>3} {chain_name}{nt_num:>4}    {coordx:>8}{coordy:>8}{coordz:>8}\n")
+            f.write(f"ATOM {atom_id:8d} {atom_name[0]:2s} {atom_name:4s} {nt_name:3s} "
+                    f"{chain_name:5s} {nt_num:5d} {coord[0]:8.3f} {coord[1]:8.3f} {coord[2]:8.3f} "
+                    f"{1.0:6.2f} {0.0:6.2f}\n")
             atom_id += 1
-    f.write("END")
     f.close()
 
-def write_PDB(DEEPCRYORNA_HOME,map_origin,dict_right_chain_order,nt_chains_raw_and_outpdbfile):
+def write_PDB(DEEPCRYORNA_HOME,map_origin,dict_right_chain_order,nt_chains_raw_and_outfile):
     list_backbone_templates, list_sugar_base_AG_templates, list_sugar_base_CU_templates, dict_base_templates = get_template_nucleotide(DEEPCRYORNA_HOME)
+    list_backbone_templates = list_backbone_templates[0:10]
+
     backbone_ref_atom_names = ["P","OP1","OP2","O5'","C5'","C4'","C3'","O3'","C2'","O2'","C1'","O4'"]
     sugar_ref_atom_names = ["C4'","C3'","O3'","C2'","O2'","C1'","O4'"]
 
-    nt_chains_raw, outpdbfile = nt_chains_raw_and_outpdbfile
+    nt_chains_raw, outfile = nt_chains_raw_and_outfile
     nt_chains = copy.deepcopy(nt_chains_raw)
 
-    f = open(outpdbfile,"w")
+    f = open(outfile,"w")
     atom_id = 1
-    old_chain_idx = None
     for nt_num, nt in enumerate(nt_chains): 
         if len(nt) == 4:
             nt_idx, nt_name, atoms, chain_idx = nt
@@ -2516,13 +2636,12 @@ def write_PDB(DEEPCRYORNA_HOME,map_origin,dict_right_chain_order,nt_chains_raw_a
             coordz = f"{coord[2]:.3f}"
             if len(coordz) > 8:
                 coordz = coordz[:8]
-            f.write(f"ATOM  {atom_id:>5}  {atom_name:<3} {nt_name:>3} {chain_name}{nt_idx:>4}    {coordx:>8}{coordy:>8}{coordz:>8}\n")
+            f.write(f"ATOM{atom_id:>7}  {atom_name:<3} {nt_name:>3} {chain_name}{nt_idx:>4}    {coordx:>8}{coordy:>8}{coordz:>8}\n")
             atom_id += 1
-        old_chain_idx = chain_idx
     f.write("END\n")
     f.close()
 
-    return outpdbfile
+    return outfile
 
 def generate_structure_files(DEEPCRYORNA_HOME,map_origin,dict_right_chain_order,list_processed_nt_chains,filename,ncpu):
     ncpu_available = multiprocessing.cpu_count()
@@ -2532,16 +2651,16 @@ def generate_structure_files(DEEPCRYORNA_HOME,map_origin,dict_right_chain_order,
     pool = multiprocessing.Pool(processes=ncpu)
     partial_function = partial(write_PDB,DEEPCRYORNA_HOME,map_origin,dict_right_chain_order)
     
-    list_nt_chains_raw_and_outpdbfile = []
+    list_nt_chains_raw_and_outfile = []
     for i, nt_chains in enumerate(list_processed_nt_chains):
-        list_nt_chains_raw_and_outpdbfile.append((nt_chains, f"{filename}-{i+1}.pdb"))
+        list_nt_chains_raw_and_outfile.append((nt_chains, f"{filename}-{i+1}.pdb"))
 
-    list_outpdbfile_names = pool.map(partial_function, list_nt_chains_raw_and_outpdbfile)
+    list_outfile_names = pool.map(partial_function, list_nt_chains_raw_and_outfile)
 
     pool.close()
     pool.join()
 
-    return list_outpdbfile_names
+    return list_outfile_names
 
 def filter_alignment(alignment):
     seqA, seqB, score, long_chain, list_index = alignment
@@ -2700,13 +2819,13 @@ def filter_long_chains_by_chain_num(list_all_long_chains, list_long_chain_num, n
             break
     return new_list_all_long_chains
 
-def remove_short_chains_from_native_seq(list_native_seq_raw):
+def remove_short_chains_from_native_seq(list_native_seq_raw, min_chain_length):
     list_native_seq = copy.deepcopy(list_native_seq_raw)
     to_remove_idx = []
     dict_right_chain_order = {}
     count = 0
     for i, seq in enumerate(list_native_seq):
-        if len(seq) < 6:
+        if len(seq) < min_chain_length:
             to_remove_idx.append(i)
             count += 1
         else:
@@ -2724,24 +2843,31 @@ def convert_atoms_to_structures(DEEPCRYORNA_HOME,list_native_seq_raw,map_origin,
         patch_size = 64
     print(f"      For patch size {patch_size}:", flush=True)
 
-    list_native_seq, dict_right_chain_order = remove_short_chains_from_native_seq(list_native_seq_raw)
+    min_chain_length = 6
+    list_native_seq, dict_right_chain_order = remove_short_chains_from_native_seq(list_native_seq_raw, min_chain_length)
 
     list_nt = assign_atom_to_nt(DEEPCRYORNA_HOME,atomseg=atomseg,apix=0.5)
-    write_PDB_all_nts(DEEPCRYORNA_HOME,map_origin,list_nt,f"tmp/all_nts_ps{patch_size}.pdb")
+    write_PDB_all_nts(DEEPCRYORNA_HOME,map_origin,list_nt,f"tmp/all_nts_ps{patch_size}.cif")
 
     list_neighbors_candidates = sort_list_nt(list_native_seq,list_nt)
 
-    list_all_short_chains = get_all_short_chains(list_native_seq,list_neighbors_candidates)
+    list_all_short_chains = get_all_short_chains(list_native_seq,list_neighbors_candidates,ncpu)
     list_all_short_chains, list_split_chains_idx = split_all_short_chains(list_all_short_chains, list_nt)
+
     max_num_short_chains = 32
     if len(list_all_short_chains) > max_num_short_chains:
         list_all_short_chains = list_all_short_chains[0:max_num_short_chains]
         list_split_chains_idx = list_split_chains_idx[0:max_num_short_chains]
     print(f"        Got {len(list_all_short_chains)} sets of short chains.", flush=True)
 
+    short_chains_and_outfile = []
     for i, short_chains in enumerate(list_all_short_chains):
-        outpdbfile = f"tmp/short-chain-ps{patch_size}-{i+1}.pdb"
-        write_PDB_short_chains(DEEPCRYORNA_HOME,map_origin,short_chains,outpdbfile,list_nt)
+        outfile = f"tmp/short-chain-ps{patch_size}-{i+1}.cif"
+        short_chains_and_outfile.append((short_chains, outfile))
+
+    pf= partial(write_PDB_short_chains, DEEPCRYORNA_HOME, map_origin, list_nt)
+    with multiprocessing.Pool(processes=ncpu) as pool:
+        pool.map(pf, short_chains_and_outfile)
 
     num_native_chain = len(list_native_seq)
     list_all_long_chains, list_long_chain_num = thread_all_short_chains_into_long_chains(list_nt,list_all_short_chains,num_native_chain,list_split_chains_idx)
@@ -2763,21 +2889,23 @@ def convert_atoms_to_structures(DEEPCRYORNA_HOME,list_native_seq_raw,map_origin,
                 f.write(f"best alignment {i+1}\n")
                 f.write(f"alignment score: {alignment[2]}\n")
                 f.write(f"native seq: {alignment[0]}\n")
-                f.write(f"  pred seq: {alignment[1]}\n\n")
+                f.write(f"  pred seq: {alignment[1]}\n")
+                norm_score = calc_per_chain_length_normalized_alignment_score(alignment[0], alignment[1])
+                f.write(f"per-chain length-normalized alignment score: {norm_score}\n\n")
 
-    list_outpdbfile_names = generate_structure_files(DEEPCRYORNA_HOME,map_origin,dict_right_chain_order,list_mapped_nt_chains,filename,ncpu)
-    if len(list_outpdbfile_names) == 1:
-        print(f"        {len(list_outpdbfile_names)} structure has been generated in the following file:")
-        print(f"          {list_outpdbfile_names[0]}\n")
-    elif len(list_outpdbfile_names) > 1:
-        print(f"        {len(list_outpdbfile_names)} structures have been generated in the following files:")
-        for pdbfile_name in list_outpdbfile_names:
-            print(f"          {pdbfile_name}")
+    list_outfile_names = generate_structure_files(DEEPCRYORNA_HOME,map_origin,dict_right_chain_order,list_mapped_nt_chains,filename,ncpu)
+    if len(list_outfile_names) == 1:
+        print(f"        {len(list_outfile_names)} structure has been generated in the following file:")
+        print(f"          {list_outfile_names[0]}\n")
+    elif len(list_outfile_names) > 1:
+        print(f"        {len(list_outfile_names)} structures have been generated in the following files:")
+        for file_name in list_outfile_names:
+            print(f"          {file_name}")
         print()
     else:
         print(f"        Failed in predicting the RNA structures from the given cryo-EM map for patch size {patch_size}.\n")
 
-    return list_best_alignments, list_mapped_nt_chains, dict_right_chain_order, list_outpdbfile_names
+    return list_best_alignments, list_mapped_nt_chains, dict_right_chain_order, list_outfile_names
 
 def cluster_atoms(pred_atoms):
     clustered_atoms = np.zeros(pred_atoms.shape,dtype=np.int8)
@@ -2817,3 +2945,81 @@ def cluster_atoms(pred_atoms):
                 else:
                     clustered_atoms[x,y,z] = i+3
     return clustered_atoms
+
+
+def calc_per_chain_length_normalized_alignment_score(native_seq, decoy_seq):
+    assert len(native_seq) == len(decoy_seq)
+
+    ns = native_seq.upper()
+    ns = ns.replace("G","A")
+    ns = ns.replace("U","C")
+    ds = decoy_seq.upper()
+
+    list_score = []
+    score = 0
+    for i in range(len(ns)):
+        if ns[i] == "A":
+            if ds[i] == "A":
+                score += 1
+            elif ds[i] == "C":
+                score -= 1
+            elif ds[i] == "X":
+                score -= 1
+            elif ds[i] == "N":
+                score -= 3
+            elif ds[i] == "P":
+                score -= 2
+            elif ds[i] == "-":
+                score -= 2
+            else:
+                raise ValueError(f"undefined letter{ds[i]} in predicted seq: {decoy_seq}")
+        elif ns[i] == "C":
+            if ds[i] == "A":
+                score -= 1
+            elif ds[i] == "C":
+                score += 1
+            elif ds[i] == "X":
+                score -= 1
+            elif ds[i] == "N":
+                score -= 3
+            elif ds[i] == "P":
+                score -= 2
+            elif ds[i] == "-":
+                score -= 2
+            else:
+                raise ValueError(f"undefined letter{ds[i]} in predicted seq: {decoy_seq}")
+        elif ns[i] == "-":
+            score -= 5
+        elif ns[i] == "T":
+            if ds[i] == "A":
+                score -= 1
+            elif ds[i] == "C":
+                score -= 1
+            elif ds[i] == "X":
+                score -= 1
+            elif ds[i] == "P":
+                score -= 2
+            elif ds[i] == "N":
+                score += 5
+            elif ds[i] == "-":
+                score -= 2
+            else:
+                raise ValueError(f"undefined letter{ds[i]} in predicted seq: {decoy_seq}")
+            list_score.append(score)
+            score = 0
+        else:
+            raise ValueError(f"undefined letter{ns[i]} in native seq: {native_seq}")
+
+    list_score.append(score)
+
+    ns = ns.replace("-","")
+    ns = ns.split("T")
+    list_chain_len = [len(s) for s in ns]
+
+    assert len(list_score) == len(list_chain_len)
+
+    normalized_score = [f"{score/chain_len:.3f}" for score, chain_len in zip(list_score, list_chain_len)]
+    normalized_score = " ".join(normalized_score)
+
+    return normalized_score
+

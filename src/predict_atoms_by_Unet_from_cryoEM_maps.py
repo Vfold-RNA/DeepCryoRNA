@@ -188,6 +188,9 @@ def convert_map_to_atoms_by_two_patch_sizes(model_name,map_data_raw,contour,patc
 
     full_pred_atoms1, full_pred_prob1 = predict_atoms_from_unet(model,map_data,map_shape,unet_depth,patch_size1)
 
-    full_pred_atoms2, full_pred_prob2 = predict_atoms_from_unet(model,map_data,map_shape,unet_depth,patch_size2)
+    if patch_size2 is not None:
+        full_pred_atoms2, full_pred_prob2 = predict_atoms_from_unet(model,map_data,map_shape,unet_depth,patch_size2)
+    else:
+        full_pred_atoms2, full_pred_prob2 = None, None
 
     return full_pred_atoms1, full_pred_prob1, full_pred_atoms2, full_pred_prob2

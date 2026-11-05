@@ -9,24 +9,7 @@ def get_non_bonded_nt(infile):
 
     dict_chain = read_pdb(infile)
 
-    list_chain = []
-    list_single_chain = []
-    for i in range(26):
-        list_single_chain.append(chr(ord("A")+i))
-    for i in range(26):
-        list_single_chain.append(chr(ord("a")+i))
-    for i in range(10):
-        list_single_chain.append(str(i))
-    for c in list_single_chain:
-        list_chain.append(f" {c}")
-    for c1 in list_single_chain:
-        for c2 in list_single_chain:
-            list_chain.append(f"{c1}{c2}")
-
-    for i in range(len(list_chain)):
-        chain_name = list_chain[i]
-        if chain_name not in dict_chain.keys():
-            continue
+    for chain_name in dict_chain:
         for nt_idx in range(0,max(dict_chain[chain_name].keys())):
             if nt_idx in dict_chain[chain_name].keys():
                 nt1 = dict_chain[chain_name][nt_idx]
@@ -44,28 +27,18 @@ def get_non_bonded_nt(infile):
 
     return list_breaking_nts
 
-def rewrite_PDB_file(infile,outfile):
+def split_large_structure_into_files(infile):
+    fn = infile.split(".pdb")[0]
+
     with open(infile) as f:
         lines = f.read().splitlines()
 
     dict_chains = {}
-    list_chain_candidates = []
-    list_single_chain = []
-    for i in range(26):
-        list_single_chain.append(chr(ord("A")+i))
-    for i in range(26):
-        list_single_chain.append(chr(ord("a")+i))
-    for i in range(10):
-        list_single_chain.append(str(i))
-    for c in list_single_chain:
-        list_chain_candidates.append(f" {c}")
-    for c1 in list_single_chain:
-        for c2 in list_single_chain:
-            list_chain_candidates.append(f"{c1}{c2}")
 
     list_breaking_nts = get_non_bonded_nt(infile)
 
-    f = open(outfile,"w")
+    list_segments = []
+    segment = []
 
     old_nt_idx = None
     old_chain = None
@@ -77,47 +50,50 @@ def rewrite_PDB_file(infile,outfile):
         if line[0:4] != "ATOM" and line[0:6] != "HETATM":
             continue
 
-        new_line = list(line)
-        nt_idx = int("".join(new_line[22:26]))
-        chain = new_line[20]+new_line[21]
-        if old_nt_idx is None or nt_idx == old_nt_idx or ((nt_idx - old_nt_idx) == 1 and chain == old_chain and (chain, nt_idx) not in list_breaking_nts):
-            pass
+        nt_idx = int(line[22:26])
+        chain = line[21]
+        line = list(line)
+        line[4:11] = [' ']*7 # remove atom id
+        line = "".join(line)
+        if old_nt_idx is None or (chain == old_chain and nt_idx == old_nt_idx) or ((nt_idx - old_nt_idx) == 1 and chain == old_chain and (chain, nt_idx) not in list_breaking_nts):
+            segment.append(line)            
         else:
-            chain_num += 1
-        if chain_num < len(list_chain_candidates):
-            new_chain = list_chain_candidates[chain_num]
-        else:
-            new_chain = list_chain_candidates[-1]
-        new_line[20] = new_chain[0]
-        new_line[21] = new_chain[1]
-        new_line = "".join(new_line)
-        f.write(new_line+"\n")
+            list_segments.append(segment)
+            segment = [line]
         old_nt_idx = nt_idx
         old_chain = chain
-        if new_chain not in dict_chains.keys():
-            dict_chains[new_chain] = chain
+    list_segments.append(segment)
 
-    f.close()
+    list_segment_files = []
+    for i in range(len(list_segments)):
+        segment_file = f"{fn}-{i}.pdb"
+        list_segment_files.append(segment_file)
+        with open(segment_file,"w") as f:
+            for line in list_segments[i]:
+                f.write(line+"\n")
 
-    return dict_chains
+    return list_segment_files
 
-def rewrite_PDB_file_with_right_chains(dict_chains,infile,outfile):
-    with open(infile) as f:
-        lines = f.read().splitlines()
-
+def combine_segment_files(list_segment_files, outfile):
     f = open(outfile,"w")
-    for line in lines:
-        if len(line) < 10:
-            continue
-        if line[0:4] != "ATOM" and line[0:6] != "HETATM":
-            continue
-        new_line = list(line)
-        chain = new_line[20]+new_line[21]
-        right_chain = dict_chains[chain]
-        new_line[20] = right_chain[0]
-        new_line[21] = right_chain[1]
-        new_line = "".join(new_line)
-        f.write(new_line+"\n")
+  
+    atom_id = 1
+    for segment_file in list_segment_files:
+        with open(segment_file) as g:
+            lines = g.read().splitlines()
+
+        for line in lines:
+            if len(line) < 10:
+                continue
+            if line[0:4] != "ATOM" and line[0:6] != "HETATM":
+                continue
+            line = list(line)
+            atom_id_str = f"{atom_id:>7}"
+            line[4:11] = list(atom_id_str)
+            line = "".join(line)
+            f.write(line+"\n")
+            atom_id += 1
+
     f.close()
 
 def format_PDB_file(infile,outfile=None):
@@ -146,7 +122,7 @@ def format_PDB_file(infile,outfile=None):
             continue
         nt_idx = "".join(line[22:26])
         nt_idx = int(nt_idx)
-        if nt_idx == 1 and atom_name == "OP3":
+        if atom_name == "OP3":
             continue
         nt_name = "".join(line[17:20]).strip()
         if nt_name in ["RA5","RA3"]:
@@ -158,7 +134,7 @@ def format_PDB_file(infile,outfile=None):
         elif nt_name in ["RU5","RU3"]:
             line[17:20] = list("  U")
 
-        line[6:11] = list(f"{atom_idx:>5}")
+        line[4:11] = list(f"{atom_idx:>7}")
         atom_idx += 1
 
         for i in range(len(line),80):
@@ -192,31 +168,55 @@ def run_EM_by_QRNAS(DEEPCRYORNA_HOME, infile_tag):
         prefix = prefix + "/"
     pdbname = names[-1]
 
-    dict_chains = rewrite_PDB_file(infile, f"{prefix}rechained-{pdbname}")
-    has_penetration = shrink_ring_if_ring_penetration(f"{prefix}rechained-{pdbname}", f"{prefix}shrinked-{pdbname}")
-    cmd = f"{DEEPCRYORNA_HOME}/QRNAS/QRNA -i {prefix}shrinked-{pdbname} -o {prefix}em-{pdbname} -c {DEEPCRYORNA_HOME}/QRNAS/configfile.txt > {prefix}em{tag}.log 2>&1"
-    os.system(cmd)
-   
-    for i in range(5):
-        has_penetration = shrink_ring_if_ring_penetration(f"{prefix}em-{pdbname}", f"{prefix}shrinked-{pdbname}")
-        if not has_penetration or i == 4:
-            #print(f"No penetration; running energy minimization {i}", flush=True)
-            cmd = f"{DEEPCRYORNA_HOME}/QRNAS/QRNA -i {prefix}shrinked-{pdbname} -o {prefix}em-{pdbname} -c {DEEPCRYORNA_HOME}/QRNAS/configfile2.txt > {prefix}em{tag}.log 2>&1"
-            os.system(cmd)
-            break
-        else:
-            #print(f"Penetration; running energy minimization {i}", flush=True)
-            cmd = f"{DEEPCRYORNA_HOME}/QRNAS/QRNA -i {prefix}shrinked-{pdbname} -o {prefix}em-{pdbname} -c {DEEPCRYORNA_HOME}/QRNAS/configfile.txt > {prefix}em{tag}.log 2>&1"
-            os.system(cmd)
-    
-    rewrite_PDB_file_with_right_chains(dict_chains, f"{prefix}em-{pdbname}", f"{prefix}em-{pdbname}")
-    format_PDB_file(f"{prefix}em-{pdbname}")
-    
-    if os.path.exists(f"{prefix}rechained-{pdbname}"):
-        os.remove(f"{prefix}rechained-{pdbname}")
+    list_segment_files = split_large_structure_into_files(infile)
 
-    if os.path.exists(f"{prefix}shrinked-{pdbname}"):
-        os.remove(f"{prefix}shrinked-{pdbname}")
+    list_em_segment_files = []
+    list_shrinked_segment_files = []
+    list_em_log_files = []
+    for segid, segment_file in enumerate(list_segment_files):
+        shrinked_file = segment_file.split(".pdb")[0] + "-shrinked.pdb"
+        has_penetration = shrink_ring_if_ring_penetration(segment_file, shrinked_file)
+        em_file = shrinked_file.split(".pdb")[0] + "-em.pdb"
+        log_file = f"{prefix}em{tag}-{segid}.log"
+
+        cmd = f"{DEEPCRYORNA_HOME}/QRNAS/QRNA -i {shrinked_file} -o {em_file} -c {DEEPCRYORNA_HOME}/QRNAS/configfile.txt > {log_file} 2>&1"
+        os.system(cmd)
+   
+        for i in range(3):
+            has_penetration = shrink_ring_if_ring_penetration(em_file, shrinked_file)
+            if not has_penetration or i == 2:
+                #print(f"No penetration; running energy minimization {i}", flush=True)
+                cmd = f"{DEEPCRYORNA_HOME}/QRNAS/QRNA -i {shrinked_file} -o {em_file} -c {DEEPCRYORNA_HOME}/QRNAS/configfile2.txt > {log_file} 2>&1"
+                os.system(cmd)
+                break
+            else:
+                #print(f"Penetration; running energy minimization {i}", flush=True)
+                cmd = f"{DEEPCRYORNA_HOME}/QRNAS/QRNA -i {shrinked_file} -o {em_file} -c {DEEPCRYORNA_HOME}/QRNAS/configfile.txt > {log_file} 2>&1"
+                os.system(cmd)
+
+        list_em_segment_files.append(em_file)
+        list_shrinked_segment_files.append(shrinked_file)
+        list_em_log_files.append(log_file)
+    
+    outfile = f"{prefix}em-{pdbname}"
+    combine_segment_files(list_em_segment_files, outfile)
+    format_PDB_file(outfile)
+
+    for fn in list_segment_files:
+        if os.path.exists(fn):
+            os.remove(fn)
+
+    for fn in list_em_segment_files:
+        if os.path.exists(fn):
+            os.remove(fn)
+
+    for fn in list_shrinked_segment_files:
+        if os.path.exists(fn):
+            os.remove(fn)
+
+    for fn in list_em_log_files:
+        if os.path.exists(fn):
+            os.remove(fn)
 
     return f"{prefix}em-{pdbname}"
 

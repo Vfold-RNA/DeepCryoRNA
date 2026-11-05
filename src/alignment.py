@@ -1,5 +1,10 @@
 import numpy as np
 import re
+import sys
+
+
+sys.setrecursionlimit(10000) 
+
 
 def score_match(a, b, pair_scores, T_N_misalignment_penalty):
     if a == 'T' and b not in ['N','P']:

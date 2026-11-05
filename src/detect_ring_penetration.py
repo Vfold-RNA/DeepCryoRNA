@@ -33,7 +33,7 @@ def read_pdb(pdbname):
             continue
         if "H" in atom_name:
             continue
-        chain_name = line[20:22]
+        chain_name = line[21]
         nt_idx = int(line[22:26].strip())
         x = float(line[30:38])
         y = float(line[38:46])
@@ -516,25 +516,8 @@ def check_ring_penetration(dict_chain):
 def output_PDB_structure(dict_chain,outfile):
     f = open(outfile,"w")
 
-    list_chain = []
-    list_single_chain = []
-    for i in range(26):
-        list_single_chain.append(chr(ord("A")+i))
-    for i in range(26):
-        list_single_chain.append(chr(ord("a")+i))
-    for i in range(10):
-        list_single_chain.append(str(i))
-    for c in list_single_chain:
-        list_chain.append(f" {c}")
-    for c1 in list_single_chain:
-        for c2 in list_single_chain:
-            list_chain.append(f"{c1}{c2}")
-
     atom_idx = 1
-    for i in range(len(list_chain)):
-        chain_name = list_chain[i]
-        if chain_name not in dict_chain.keys():
-            continue
+    for chain_name in dict_chain:
         for nt_idx in range(0,max(dict_chain[chain_name].keys())+1):
             if nt_idx in dict_chain[chain_name].keys():
                 nt = dict_chain[chain_name][nt_idx]
@@ -553,7 +536,7 @@ def output_PDB_structure(dict_chain,outfile):
                 coordz = f"{coord[2]:.3f}"
                 if len(coordz) > 8:
                     coordz = coordz[:8]
-                f.write(f"ATOM  {atom_idx:>5}  {atom_name:<3} {nt_name:>3}{chain_name}{nt_idx:>4}    {coordx:>8}{coordy:>8}{coordz:>8}\n")
+                f.write(f"ATOM{atom_idx:>7}  {atom_name:<3} {nt_name:>3} {chain_name}{nt_idx:>4}    {coordx:>8}{coordy:>8}{coordz:>8}\n")
                 atom_idx += 1
         f.write("TER\n")
     f.write("END\n")
@@ -562,8 +545,8 @@ def output_PDB_structure(dict_chain,outfile):
 def shrink_ring_if_ring_penetration(pdbname, outpdbname):
     dict_chain = read_pdb(pdbname)
     has_penetration, dict_chain = check_ring_penetration(dict_chain)
-    dict_chain_added = {}
-    if has_penetration:
-        output_PDB_structure(dict_chain,outpdbname)
+    output_PDB_structure(dict_chain,outpdbname)
+    #if has_penetration:
+        #output_PDB_structure(dict_chain,outpdbname)
         #print(f"Ring penetration is detected in the file '{pdbname}'.\nThe new structure with shrinked rings is written into the file '{outpdbname}'")
     return has_penetration
